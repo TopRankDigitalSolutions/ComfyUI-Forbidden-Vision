@@ -216,6 +216,24 @@ class LatentRefiner:
                         latent=None, vae=None, image=None, **kwargs):
         try:
             check_for_interruption()
+            # --- Sanitize inputs (ComfyUI can corrupt widgets during bypass/mute) ---
+            if depth_dof_model not in ("V2-Small", "V2-Base"):
+                depth_dof_model = "V2-Small"
+            upscale_factor = max(1.0, min(8.0, float(upscale_factor)))
+            corrector_tone = max(0.0, min(1.0, float(corrector_tone)))
+            corrector_color = max(0.0, min(1.0, float(corrector_color)))
+            depth_relight_stringth = max(0.0, min(1.0, float(depth_relight_stringth)))
+            depth_dof_strength = max(0.0, min(1.0, float(depth_dof_strength)))
+            depth_dof_focus = max(0.50, min(0.99, float(depth_dof_focus)))
+            tile_size = max(256, min(2048, int(tile_size)))
+            enable_upscale = bool(enable_upscale)
+            neural_corrector = bool(neural_corrector)
+            depth_relight = bool(depth_relight)
+            depth_dof_enable = bool(depth_dof_enable)
+            maintain_aspect_ratio = bool(maintain_aspect_ratio)
+            enforce_mod32_boundaries = bool(enforce_mod32_boundaries)
+            use_tiled_vae = bool(use_tiled_vae)
+            # --- End sanitization ---
             device = model_management.get_torch_device()
 
             is_latent_input = latent is not None and "samples" in latent
