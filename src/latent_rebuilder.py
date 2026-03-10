@@ -12,6 +12,8 @@ class ForbiddenVisionRebuilder:
     
     @classmethod
     def INPUT_TYPES(cls):
+        schedulers = list(comfy.samplers.KSampler.SCHEDULERS)
+        samplers = list(comfy.samplers.KSampler.SAMPLERS)
         return {
             "required": {
                 "latent": ("LATENT",),
@@ -23,8 +25,8 @@ class ForbiddenVisionRebuilder:
                 "steps": ("INT", {"default": 10, "min": 1, "max": 100}),
                 "cfg": ("FLOAT", {"default": 3.0, "min": 1.0, "max": 20.0, "step": 0.1}),
                 "denoise": ("FLOAT", {"default": 0.28, "min": 0.01, "max": 1.0, "step": 0.01}),
-                "sampler_name": (comfy.samplers.KSampler.SAMPLERS, {"default": "euler"}),
-                "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {"default": "sgm_uniform"}),
+                "sampler_name": (samplers, {"default": "euler_ancestral"}),
+                "scheduler": (schedulers, {"default": "sgm_uniform"}),
             },
             "optional": {
                 "vae": ("VAE",),

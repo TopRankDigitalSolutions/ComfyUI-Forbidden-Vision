@@ -33,6 +33,8 @@ class ForbiddenVisionFaceProcessorIntegrated:
 
     @classmethod
     def INPUT_TYPES(s):
+        schedulers = list(comfy.samplers.KSampler.SCHEDULERS)
+        samplers = list(comfy.samplers.KSampler.SAMPLERS)
         upscaler_models = get_ordered_upscaler_model_list()
         
         default_upscaler = "Fast 4x (Lanczos)"
@@ -48,8 +50,8 @@ class ForbiddenVisionFaceProcessorIntegrated:
 
                 "steps": ("INT", {"default": 10, "min": 1, "max": 100}),
                 "cfg_scale": ("FLOAT", {"default": 3.0, "min": 0.0, "max": 30.0, "step": 0.1}),
-                "sampler": (comfy.samplers.KSampler.SAMPLERS, {"default": "euler_ancestral"}),
-                "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {"default": "sgm_uniform"}),
+                "sampler": (samplers, {"default": "euler_ancestral"}),
+                "scheduler": (schedulers, {"default": "sgm_uniform"}),
                 "denoise_strength": ("FLOAT", {"default": 0.4, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
                 

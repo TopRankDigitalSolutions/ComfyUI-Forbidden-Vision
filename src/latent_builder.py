@@ -15,6 +15,9 @@ class LatentBuilder:
     
     @classmethod
     def INPUT_TYPES(cls):
+        schedulers = list(comfy.samplers.KSampler.SCHEDULERS)
+        samplers = list(comfy.samplers.KSampler.SAMPLERS)
+
         return {
             "required": {
                 "model": ("MODEL",),
@@ -25,8 +28,8 @@ class LatentBuilder:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
                 "steps": ("INT", {"default": 15, "min": 1, "max": 10000}),
                 "cfg": ("FLOAT", {"default": 5.5, "min": 1.0, "max": 30.0, "step": 0.1}),
-                "sampler_name": (comfy.samplers.KSampler.SAMPLERS, {"default": "euler_ancestral"}),
-                "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {"default": "sgm_uniform"}),
+                "sampler_name": (samplers, {"default": "euler_ancestral"}),
+                "scheduler": (schedulers, {"default": "sgm_uniform"}),
                 
                 "resolution_preset": (["Custom"] + list(cls.RESOLUTIONS.keys()),),
                 "custom_width": ("INT", {"default": 1024, "min": 256, "max": 4096, "step": 64}),

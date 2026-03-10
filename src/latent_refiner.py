@@ -13,7 +13,7 @@ class LatentRefiner:
     def INPUT_TYPES(s):
         upscaler_models = get_refiner_upscaler_models()
         default_upscaler = upscaler_models[1] if len(upscaler_models) > 1 else upscaler_models[0]        
-
+        
         return {
             "required": {
                 "enable_upscale": ("BOOLEAN", {"default": False, "label_on": "Enabled", "label_off": "Disabled"}),

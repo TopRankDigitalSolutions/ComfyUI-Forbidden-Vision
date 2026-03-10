@@ -4,10 +4,12 @@ class SamplerSchedulerSettings:
     
     @classmethod
     def INPUT_TYPES(cls):
+        schedulers = list(comfy.samplers.KSampler.SCHEDULERS)
+        samplers = list(comfy.samplers.KSampler.SAMPLERS)
         return {
             "required": {
-                "sampler_name": (comfy.samplers.KSampler.SAMPLERS, {"default": "euler_ancestral"}),
-                "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {"default": "sgm_uniform"}),
+                "sampler_name": (samplers, {"default": "euler_ancestral"}),
+                "scheduler": (schedulers, {"default": "sgm_uniform"}),
             }
         }
 
