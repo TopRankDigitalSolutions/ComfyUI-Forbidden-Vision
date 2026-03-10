@@ -27,7 +27,6 @@ except ImportError:
 
 class ForbiddenVisionModelManager:
     _instance = None
-    _models = {}
 
     MODELS_CONFIG = {
         'face_detect': {
@@ -35,14 +34,19 @@ class ForbiddenVisionModelManager:
             'filename': 'ForbiddenVision_face_detect_v1.pt',
             'model_type': 'yolo'
         },
+        'face_detect_onnx': {
+            'repo_id': 'luxdelux7/ForbiddenVision_Models',
+            'filename': 'ForbiddenVision_face_detect_v1.onnx',
+            'model_type': 'yolo'
+        },
         'face_segment': {
             'repo_id': 'luxdelux7/ForbiddenVision_Models',
-            'filename': 'ForbiddenVision_face_segment_v1.pth',
+            'filename': 'ForbiddenVision_face_segment_v1.safetensors',
             'model_type': 'unetplusplus'
         },
         'neural_corrector': {
             'repo_id': 'luxdelux7/ForbiddenVision_Models',
-            'filename': 'ForbiddenVision_neural_corrector_v1.pth',
+            'filename': 'ForbiddenVision_neural_corrector_v1.safetensors',
             'model_type': 'rgb_curves_v2'
         }
     }
@@ -57,6 +61,7 @@ class ForbiddenVisionModelManager:
         os.makedirs(self.models_dir, exist_ok=True)
         self.segmentation_model = None
         self.segmentation_preprocessing = None
+        self._models = {}
 
     @classmethod
     def get_instance(cls):
@@ -166,28 +171,69 @@ class ForbiddenVisionModelManager:
         print(f"ForbiddenVision: {successful_downloads}/{len(required_models)} models ready")
         return download_results
 
+    def _check_onnx_available(self):
+        """Check if onnxruntime is available for ONNX model loading."""
+        try:
+            import onnxruntime
+            return True
+        except ImportError:
+            return False
+
     def load_face_detection_model(self):
-        model_name = 'ForbiddenVision_face_detect_v1.pt'
+        model_name_pt   = 'ForbiddenVision_face_detect_v1.pt'
+        model_name_onnx = 'ForbiddenVision_face_detect_v1.onnx'
 
-        if model_name in self._models:
-            return self._models[model_name]
+        for name in (model_name_onnx, model_name_pt):
+            if name in self._models:
+                return self._models[name]
 
-        config = self.MODELS_CONFIG['face_detect']
-        local_path = os.path.join(self.models_dir, config['filename'])
+        device = model_management.get_torch_device()
+        onnx_available = self._check_onnx_available()
+        is_cuda = device.type == "cuda"
 
-        if not os.path.exists(local_path):
-            self._download_model('face_detect')
+        use_onnx = False
+        if onnx_available:
+            try:
+                import onnxruntime as ort
+                providers = ort.get_available_providers()
+                if is_cuda and "CUDAExecutionProvider" in providers:
+                    use_onnx = True
+                    print("ForbiddenVision: ONNX runtime with CUDA support detected")
+                elif not is_cuda:
+                    use_onnx = True
+                    print("ForbiddenVision: ONNX runtime (CPU) detected")
+                else:
+                    print("ForbiddenVision: onnxruntime installed but no CUDA provider, falling back to .pt")
+            except Exception:
+                pass
+
+        if use_onnx:
+            local_path = os.path.join(self.models_dir, model_name_onnx)
+            if not os.path.exists(local_path):
+                self._download_model('face_detect_onnx')
+            if not os.path.exists(local_path):
+                use_onnx = False
+
+        if not use_onnx:
+            local_path = os.path.join(self.models_dir, model_name_pt)
+            if not os.path.exists(local_path):
+                self._download_model('face_detect')
 
         if not os.path.exists(local_path):
             return None
 
         try:
-            device = model_management.get_torch_device()
-            model = YOLO(local_path)
-            model.to(device)
-            self._models[model_name] = model
-            print(f"ForbiddenVision: Loaded face detection model")
+            model = YOLO(local_path, task='detect')
+
+            if not use_onnx:
+                model.to(device)
+
+            cache_key = model_name_onnx if use_onnx else model_name_pt
+            self._models[cache_key] = model
+            fmt = "ONNX" if use_onnx else "PyTorch"
+            print(f"ForbiddenVision: Loaded face detection model [{fmt}]")
             return model
+
         except Exception as e:
             print(f"ForbiddenVision: Error loading face detection model: {e}")
             return None
@@ -217,7 +263,11 @@ class ForbiddenVisionModelManager:
                 decoder_channels=(256, 128, 64, 32, 16)
             )
 
-            state_dict = torch.load(model_path, map_location='cpu')
+            if model_path.endswith('.safetensors'):
+                from safetensors.torch import load_file
+                state_dict = load_file(model_path, device='cpu')
+            else:
+                state_dict = torch.load(model_path, map_location='cpu')
             model.load_state_dict(state_dict)
             model = model.half().to(device).eval()
 
@@ -256,23 +306,28 @@ class ForbiddenVisionModelManager:
 
             model = BilateralGridEditor(
                 backbone_name='mobilenetv4_conv_small.e2400_r224_in1k',
-                grid_d=24
+                grid_d=24,
+                pretrained=False
             )
 
-            try:
-                ckpt = torch.load(local_path, map_location="cpu", weights_only=True)
-            except TypeError:
-                ckpt = torch.load(local_path, map_location="cpu")
-
-            if isinstance(ckpt, dict):
-                if "model" in ckpt and isinstance(ckpt["model"], dict):
-                    state_dict = ckpt["model"]
-                elif "state_dict" in ckpt and isinstance(ckpt["state_dict"], dict):
-                    state_dict = ckpt["state_dict"]
-                else:
-                    state_dict = ckpt
+            if local_path.endswith('.safetensors'):
+                from safetensors.torch import load_file
+                state_dict = load_file(local_path, device="cpu")
             else:
-                raise RuntimeError("Checkpoint is not a dict / state_dict")
+                try:
+                    ckpt = torch.load(local_path, map_location="cpu", weights_only=True)
+                except TypeError:
+                    ckpt = torch.load(local_path, map_location="cpu")
+
+                if isinstance(ckpt, dict):
+                    if "model" in ckpt and isinstance(ckpt["model"], dict):
+                        state_dict = ckpt["model"]
+                    elif "state_dict" in ckpt and isinstance(ckpt["state_dict"], dict):
+                        state_dict = ckpt["state_dict"]
+                    else:
+                        state_dict = ckpt
+                else:
+                    raise RuntimeError("Checkpoint is not a dict / state_dict")
 
             model.load_state_dict(state_dict, strict=True)
 

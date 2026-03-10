@@ -80,7 +80,8 @@ class ForbiddenVisionFaceDetector:
             
             try:
                 yolo_pil = Image.fromarray(yolo_image, mode='RGB')
-                results = detection_model(yolo_pil, conf=detection_confidence, verbose=False)
+                device_str = "0" if model_management.get_torch_device().type == "cuda" else "cpu"
+                results = detection_model.predict(yolo_pil, conf=detection_confidence, verbose=False, device=device_str)
             except Exception as detection_error:
                 self._debug_log(f"YOLO detection failed: {detection_error}", "ERROR")
                 fallback_mask = self._create_fallback_mask(image_tensor)

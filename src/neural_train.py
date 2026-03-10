@@ -1481,12 +1481,12 @@ def colored_highlight_anti_desat_loss(
 class BilateralGridEditor(nn.Module):
 
     def __init__(self, backbone_name='mobilenetv4_conv_small.e2400_r224_in1k',
-                 grid_d=24):
+                 grid_d=24, pretrained=True):
         super().__init__()
         self.grid_d = grid_d
 
         self.backbone = timm.create_model(
-            backbone_name, pretrained=True,
+            backbone_name, pretrained=pretrained,
             features_only=True, out_indices=[2, 3, -1]
         )
         enc_ch_list = self.backbone.feature_info.channels()
